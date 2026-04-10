@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automation Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+  font-family: Arial;
+  margin:0;
+  background:#0f172a;
+  color:white;
+}
+
+header{
+  padding:20px;
+  text-align:center;
+  font-size:28px;
+  background:#5b6ee1;
+}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+  padding:20px;
+}
+
+.card{
+  background:#1e293b;
+  padding:20px;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.pass{
+  font-size:32px;
+  font-weight:bold;
+}
+
+.expand{
+  display:none;
+}
+
+.card.open .expand{
+  display:block;
+}
+
+canvas{
+  margin-top:15px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>📊 Automation Dashboard</header>
+
+<div class="cards" id="cards"></div>
+
+<script>
+
+/* -----------------------------
+ Jenkins Jobs
+------------------------------*/
+
+const jobs = [
+
+{
+id:"job1",
+name:"TypeScript Hybrid Framework",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+},
+
+{
+id:"job2",
+name:"API Automation",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+},
+
+{
+id:"job3",
+name:"Web UI Automation",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+},
+
+{
+id:"job4",
+name:"Mobile Automation",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+},
+
+{
+id:"job5",
+name:"Regression Suite",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+},
+
+{
+id:"job6",
+name:"Smoke Suite",
+url:"http://localhost:8080/job/TypeScriptHybridAllureFramework/8/execution/node/3/ws/cucumber.json"
+}
+
+];
+
+
+/* -----------------------------
+ Parse Cucumber Report
+------------------------------*/
+
+function parseReport(data){
+
+let total=0;
+let passed=0;
+let failed=0;
+let skipped=0;
+
+data.forEach(feature=>{
+
+if(!feature.elements) return;
+
+feature.elements.forEach(scenario=>{
+
+total++;
+
+const statuses = scenario.steps.map(s=>s.result.status);
+
+if(statuses.includes("failed")) failed++;
+else if(statuses.includes("skipped") || statuses.includes("pending")) skipped++;
+else passed++;
+
+});
+
+});
+
+return {total,passed,failed,skipped};
+
+}
+
+
+/* -----------------------------
+ Load Dashboard
+------------------------------*/
+
+async function loadJobs(){
+
+const container=document.getElementById("cards");
+container.innerHTML="";
+
+for(const job of jobs){
+
+try{
+
+const res = await fetch(job.url,{
+headers:{
+"Authorization":"Basic "+btoa("admin:110c32e949d42238f6c27ef3e60438defa")
+}
+});
+
+const data = await res.json();
+
+const stats = parseReport(data);
+
+const pass = ((stats.passed/stats.total)*100).toFixed(2);
+
+createCard(job,stats,pass);
+
+}catch(e){
+
+createCard(job,{total:"N/A"}, "Error");
+
+}
+
+}
+
+}
+
+
+/* -----------------------------
+ Create Card
+------------------------------*/
+
+function createCard(job,stats,pass){
+
+const container=document.getElementById("cards");
+
+const card=document.createElement("div");
+card.className="card";
+
+card.innerHTML=`
+
+<h3>${job.name}</h3>
+
+<div class="pass">${pass}%</div>
+
+<div>Total Tests: ${stats.total}</div>
+
+<div class="expand">
+
+<canvas id="chart-${job.id}"></canvas>
+
+</div>
+
+`;
+
+card.onclick=()=>{
+
+card.classList.toggle("open");
+
+if(card.classList.contains("open"))
+renderChart(job.id,stats);
+
+};
+
+container.appendChild(card);
+
+}
+
+
+/* -----------------------------
+ Chart
+------------------------------*/
+
+function renderChart(id,stats){
+
+const ctx=document.getElementById(`chart-${id}`);
+
+new Chart(ctx,{
+
+type:"doughnut",
+
+data:{
+labels:["Passed","Failed","Skipped"],
+datasets:[{
+data:[stats.passed,stats.failed,stats.skipped]
+}]
+}
+
+});
+
+}
+
+
+/* ----------------------------- */
+
+loadJobs();
+
+setInterval(loadJobs,60000);
+
+</script>
+
+</body>
+</html>
