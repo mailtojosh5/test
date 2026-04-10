@@ -1,28 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Jenkins Dashboard</title>
+<title>Jenkins DevOps Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body {
-  font-family: Arial;
   margin: 0;
+  font-family: Arial;
   background: #0f172a;
   color: white;
 }
 
 header {
+  background: #5b6ee1;
   padding: 20px;
   text-align: center;
-  font-size: 24px;
-  background: #5b6ee1;
+  font-size: 22px;
 }
 
-.container {
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 15px;
   padding: 20px;
 }
@@ -31,171 +30,61 @@ header {
   background: #1e293b;
   padding: 15px;
   border-radius: 10px;
-  cursor: pointer;
 }
 
 .pass {
   font-size: 28px;
-  font-weight: bold;
   color: #22d3ee;
 }
 
 .fail {
   color: #ef4444;
 }
-
-canvas {
-  margin-top: 10px;
-}
 </style>
 </head>
 
 <body>
 
-<header>📊 Jenkins Cucumber Dashboard</header>
+<header>🚀 Production Jenkins Dashboard</header>
 
-<div class="container" id="container"></div>
+<div class="grid" id="grid"></div>
 
 <script>
 
 /*
 ----------------------------------
-CONFIG (IMPORTANT)
-----------------------------------
-Replace with YOUR Jenkins URLs
-Must allow CORS or be public
-*/
-
-const jobs = [
-{
-  id: "job1",
-  name: "TypeScript Hybrid",
-  url: "http://localhost:8080/job/TypeScriptHybridAllureFramework/lastSuccessfulBuild/artifact/cucumber.json"
-},
-{
-  id: "job2",
-  name: "API Automation",
-  url: "http://localhost:8080/job/TypeScriptHybridAllureFramework/lastSuccessfulBuild/artifact/cucumber.json"
-}
-];
-
-/*
-----------------------------------
-FETCH JSON (NO AXIOS / NO BACKEND)
+POINT TO PROXY SERVER
 ----------------------------------
 */
-
-async function fetchJson(url) {
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Accept": "application/json"
-    }
-  });
-
-  if (!res.ok) {
-    throw new Error("HTTP " + res.status);
-  }
-
-  return await res.json();
-}
-
-/*
-----------------------------------
-PARSE CUCUMBER
-----------------------------------
-*/
-
-function parse(data) {
-
-  let total = 0;
-  let passed = 0;
-  let failed = 0;
-  let skipped = 0;
-
-  data.forEach(f => {
-
-    if (!f.elements) return;
-
-    f.elements.forEach(s => {
-
-      total++;
-
-      const statuses = s.steps.map(st => st.result.status);
-
-      if (statuses.includes("failed")) failed++;
-      else if (
-        statuses.includes("skipped") ||
-        statuses.includes("pending")
-      ) skipped++;
-      else passed++;
-
-    });
-
-  });
-
-  return { total, passed, failed, skipped };
-}
-
-/*
-----------------------------------
-LOAD DASHBOARD
-----------------------------------
-*/
+const API = "http://localhost:3000/api/jobs";
 
 async function load() {
 
-  const container = document.getElementById("container");
-  container.innerHTML = "";
+  const res = await fetch(API);
+  const jobs = await res.json();
 
-  for (const job of jobs) {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
 
-    try {
+  jobs.forEach(job => {
 
-      const data = await fetchJson(job.url);
-      const stats = parse(data);
+    const div = document.createElement("div");
+    div.className = "card";
 
-      const passRate =
-        stats.total > 0
-          ? ((stats.passed / stats.total) * 100).toFixed(2)
-          : 0;
-
-      const card = document.createElement("div");
-      card.className = "card";
-
-      card.innerHTML = `
+    if (job.error) {
+      div.innerHTML = `<h3>${job.name}</h3><div class="fail">Error loading data</div>`;
+    } else {
+      div.innerHTML = `
         <h3>${job.name}</h3>
-        <div class="pass">${passRate}%</div>
-        <div>Total: ${stats.total}</div>
-        <div class="fail">Failed: ${stats.failed}</div>
-        <canvas id="chart-${job.id}"></canvas>
+        <div class="pass">${job.passRate}%</div>
+        <div>Total: ${job.total}</div>
+        <div>Passed: ${job.passed}</div>
+        <div>Failed: ${job.failed}</div>
       `;
-
-      container.appendChild(card);
-
-      new Chart(document.getElementById(`chart-${job.id}`), {
-        type: "doughnut",
-        data: {
-          labels: ["Passed", "Failed", "Skipped"],
-          datasets: [{
-            data: [stats.passed, stats.failed, stats.skipped]
-          }]
-        }
-      });
-
-    } catch (err) {
-
-      const card = document.createElement("div");
-      card.className = "card";
-
-      card.innerHTML = `
-        <h3>${job.name}</h3>
-        <div class="fail">ERROR: ${err.message}</div>
-      `;
-
-      container.appendChild(card);
     }
-  }
+
+    grid.appendChild(div);
+  });
 }
 
 load();
